@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Restock medicine{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">INVENTORY</p>
+    <h1>Restock existing medicine</h1>
+    <p class="muted">Choose an active batch and enter how many units to add.</p>
+  </div>
+  <a class="btn btn-light" href="{{ url_for('main.medicines') }}">← Back to stock</a>
+</div>
+<section class="panel form-panel">
+  {% if batches %}
+  <form method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="span2">Medicine batch *
+      <select name="batch_id" required>
+        <option value="">Choose a medicine batch</option>
+        {% for batch in batches %}
+        <option value="{{ batch.batch_id }}">{{ batch.medicine_name }} · Batch {{ batch.batch_number }} · Expires {{ batch.expiry_date }} · Current stock {{ batch.quantity }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Quantity to add *
+      <input name="quantity" type="number" min="1" max="4294967295" step="1" required>
+    </label>
+    <div class="span2"><button class="btn btn-primary" type="submit">Add quantity to stock</button></div>
+  </form>
+  {% else %}
+  <p class="empty">There are no active, unexpired batches to restock. Add a new medicine batch first.</p>
+  {% endif %}
+</section>
+{% endblock %}

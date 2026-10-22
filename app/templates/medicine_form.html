@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% set page_title = 'Edit medicine & batch' if editing|default(false) else 'Add medicine & batch' %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">INVENTORY</p>
+    <h1>{{ page_title }}</h1>
+    <p class="muted">Each batch has its own expiry and pricing.</p>
+  </div>
+  <div class="actions">
+    {% if not editing|default(false) %}<a class="btn btn-light" href="{{ url_for('main.restock_medicine') }}">Restock existing medicine</a>{% endif %}
+    <a class="btn btn-light" href="{{ url_for('main.medicines') }}">← Back</a>
+  </div>
+</div>
+<section class="panel form-panel">
+  <form method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Medicine name *<input name="name" required maxlength="180" value="{{ medicine.get('name', '') }}"></label>
+    <label>Category<input name="category" maxlength="100" value="{{ medicine.get('category', '') }}"></label>
+    <label>Manufacturer<input name="manufacturer" maxlength="160" value="{{ medicine.get('manufacturer', '') }}"></label>
+    <label>Barcode<input name="barcode" maxlength="100" value="{{ medicine.get('barcode', '') }}"></label>
+    <label>Batch number *<input name="batch_number" required maxlength="100" value="{{ medicine.get('batch_number', '') }}"></label>
+    <label>Expiry date *<input name="expiry_date" type="date" required value="{{ medicine.get('expiry_date', '') }}"></label>
+    <label>Purchase price (₹) *<input name="purchase_price" type="number" min="0" step=".01" required value="{{ medicine.get('purchase_price', '') }}"></label>
+    <label>Selling price (₹) *<input name="selling_price" type="number" min="0" step=".01" required value="{{ medicine.get('selling_price', '') }}"></label>
+    <label>Quantity *<input name="quantity" type="number" min="0" value="{{ medicine.get('quantity', 0) }}" required></label>
+    <label>Reorder level<input name="reorder_level" type="number" min="0" value="{{ medicine.get('reorder_level', 10) }}" required></label>
+    <label>GST %<input name="gst_percent" type="number" min="0" max="100" step=".01" value="{{ medicine.get('gst_percent', 0) }}"></label>
+    <div class="span2"><button class="btn btn-primary">{{ 'Save changes' if editing|default(false) else 'Save medicine batch' }}</button></div>
+  </form>
+</section>
+{% endblock %}

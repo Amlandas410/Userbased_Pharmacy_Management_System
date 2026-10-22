@@ -1,0 +1,45 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${PLATFORM_DB_NAME:-pharmacy_platform}
+      MYSQL_USER: ${PLATFORM_DB_USER:-platform_app}
+      MYSQL_PASSWORD: ${PLATFORM_DB_PASSWORD:?Set PLATFORM_DB_PASSWORD in .env}
+    command: ["mysqld","--character-set-server=utf8mb4","--collation-server=utf8mb4_0900_ai_ci"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL","mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  db-provisioner:
+    image: mysql:8.4
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      PROVISION_DB_USER: ${PROVISION_DB_USER:-tenant_provisioner}
+      PROVISION_DB_PASSWORD: ${PROVISION_DB_PASSWORD:?Set PROVISION_DB_PASSWORD in .env}
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mysql --protocol=TCP -h db -uroot -p"$$MYSQL_ROOT_PASSWORD" -e
+        "CREATE USER IF NOT EXISTS '$$PROVISION_DB_USER'@'%' IDENTIFIED BY '$$PROVISION_DB_PASSWORD';
+        ALTER USER '$$PROVISION_DB_USER'@'%' IDENTIFIED BY '$$PROVISION_DB_PASSWORD';
+        GRANT ALL PRIVILEGES ON *.* TO '$$PROVISION_DB_USER'@'%' WITH GRANT OPTION;
+        FLUSH PRIVILEGES;"
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      db-provisioner:
+        condition: service_completed_successfully
+volumes:
+  mysql_data:
