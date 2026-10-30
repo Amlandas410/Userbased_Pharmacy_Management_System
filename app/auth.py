@@ -5,6 +5,7 @@ from .db import platform_db, provision_tenant, tenant_db_name
 from .extensions import limiter
 auth_bp=Blueprint("auth",__name__)
 EMAIL_PATTERN = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
+PHONE_PATTERN = re.compile(r"[6-9][0-9]{9}")
 
 @auth_bp.route("/register",methods=["GET","POST"])
 @limiter.limit("5 per hour")
@@ -15,13 +16,15 @@ def register():
         name=request.form.get("pharmacy_name","").strip()
         owner=request.form.get("owner_name","").strip()
         email=request.form.get("email","").strip().lower()
-        phone=request.form.get("phone","").strip()
+        phone=request.form.get("phone","")
         license_no=request.form.get("license_number","").strip() or None
         gstin=request.form.get("gstin","").strip() or None
         address=request.form.get("address","").strip()
         password=request.form.get("password",""); confirm=request.form.get("confirm_password","")
         if not all([name,owner,email,phone,address,password]) or not EMAIL_PATTERN.fullmatch(email):
             flash("Complete all required fields with a valid email.","error"); return render_template("register.html")
+        if not PHONE_PATTERN.fullmatch(phone):
+            flash("Enter a valid 10-digit mobile number starting with 6–9.","error"); return render_template("register.html")
         if len(password)<12 or password!=confirm:
             flash("Passwords must match and contain at least 12 characters.","error"); return render_template("register.html")
         c=platform_db(); cur=c.cursor(dictionary=True)
@@ -64,11 +67,11 @@ def register():
 def login():
     if request.method=="POST":
         email=request.form.get("email","").strip().lower(); password=request.form.get("password","")
+        pharmacy_email=request.form.get("pharmacy_email","").strip().lower()
         c=platform_db(); cur=c.cursor(dictionary=True)
-        cur.execute("SELECT id,pharmacy_name,database_name,status FROM pharmacies WHERE owner_email=%s",(email,))
+        cur.execute("SELECT id,pharmacy_name,database_name,status FROM pharmacies WHERE owner_email=%s",
+                    (pharmacy_email or email,))
         t=cur.fetchone(); cur.close(); c.close()
-        # Staff sign-in is resolved against each tenant by email only in a production-ready
-        # design with a tenant slug. This MVP accepts the pharmacy owner's registered email.
         if t and t["status"]=="active":
             try:
                 c=tenant_db_name(t["database_name"]); cur=c.cursor(dictionary=True)
@@ -78,7 +81,10 @@ def login():
                     session.clear(); session.permanent=True
                     session.update(pharmacy_id=t["id"],pharmacy_name=t["pharmacy_name"],user_id=u["id"],user_name=u["full_name"],role=u["role"])
                     return redirect(url_for("main.dashboard"))
-            except Exception: current_app.logger.exception("Login failed")
+            except Exception:
+                current_app.logger.exception("Login failed")
+                flash("Could not verify this account right now. Please try again.","error")
+                return render_template("login.html")
         flash("Invalid email or password, or account unavailable.","error")
     return render_template("login.html")
 

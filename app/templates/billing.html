@@ -1,1 +1,42 @@
-{% extends 'base.html' %}{% block title %}New bill{% endblock %}{% block content %}<div class="page-head"><div><p class="eyebrow">POINT OF SALE</p><h1>Create a bill</h1><p class="muted">Expired batches are excluded and stock is rechecked on submit.</p></div></div><section class="panel"><form method="post" id="bill-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="items_json" id="items-json"><div class="form-grid"><label>Customer name<input id="customer-name" name="customer_name" value="Walk-in customer" maxlength="160"></label><label>Customer phone (optional)<input name="customer_phone" maxlength="32"></label></div><div class="searchbar"><input id="batch-search" placeholder="Search medicine or batch…"></div><div class="table-wrap"><table id="batch-table"><thead><tr><th>Medicine / batch</th><th>Expiry</th><th>Price</th><th>Stock</th><th>Qty</th><th></th></tr></thead><tbody>{% for b in batches %}<tr data-search="{{ (b.name ~ ' ' ~ b.batch_number)|lower }}"><td><strong>{{ b.name }}</strong><small>{{ b.batch_number }}</small></td><td>{{ b.expiry_date }}</td><td>₹{{ '%.2f'|format(b.selling_price|float) }} <small>GST {{ b.gst_percent }}%</small></td><td>{{ b.quantity }}</td><td><input class="qty-input" type="number" min="1" max="{{ b.quantity }}" value="1" style="width:70px"></td><td><button type="button" class="btn btn-small add-line" data-id="{{ b.batch_id }}" data-name="{{ b.name }}" data-batch="{{ b.batch_number }}" data-price="{{ b.selling_price }}" data-gst="{{ b.gst_percent }}" data-stock="{{ b.quantity }}">Add</button></td></tr>{% endfor %}</tbody></table></div><h2 class="section-title">Bill items</h2><div class="table-wrap"><table><thead><tr><th>Medicine</th><th>Qty</th><th>Unit price</th><th>Line total</th><th></th></tr></thead><tbody id="bill-lines"><tr><td colspan="5" class="empty">No items added.</td></tr></tbody></table></div><div class="bill-bottom"><label>Discount (₹)<input type="number" min="0" step=".01" id="discount" name="discount" value="0"></label><div class="totals"><div>Subtotal <strong id="subtotal">₹0.00</strong></div><div>Estimated GST <strong id="tax">₹0.00</strong></div><div class="grand-total">Total <strong id="total">₹0.00</strong></div></div></div><button class="btn btn-primary" id="submit-bill">Complete sale</button></form></section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}New bill{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><p class="eyebrow">POINT OF SALE</p><h1>Create a bill</h1><p class="muted">Check the customer's previous bills before completing a new sale.</p></div>
+  <span class="pill warning">New bills start as unpaid</span>
+</div>
+<section class="panel billing-panel">
+  <form method="post" id="bill-form" data-customer-lookup-url="{{ url_for('main.customer_lookup') }}" data-bill-url="{{ url_for('main.bill_detail',sale_id=0) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="items_json" id="items-json">
+    <h2 class="section-title first-section-title">Customer details</h2>
+    <div class="form-grid">
+      <label>Customer name<input id="customer-name" name="customer_name" value="{{ form_data.get('customer_name','Walk-in customer') }}" maxlength="160" required></label>
+      <label>Customer phone <span class="muted inline-note">Required for named customers</span><input id="customer-phone" name="customer_phone" value="{{ form_data.get('customer_phone','') }}" type="tel" inputmode="numeric" autocomplete="tel" minlength="10" maxlength="10" pattern="[6-9][0-9]{9}" placeholder="10-digit mobile number"></label>
+    </div>
+    <div id="customer-history" class="customer-history" aria-live="polite">
+      <div class="history-empty"><span class="history-icon">↻</span><span><strong>Previous bill check</strong><small>Enter a customer's phone number to see their previous bills and outstanding balance.</small></span></div>
+    </div>
+    <h2 class="section-title">Select medicines</h2>
+    <div class="searchbar"><input id="batch-search" placeholder="Search medicine or batch…" aria-label="Search medicines or batches"></div>
+    <div class="table-wrap"><table id="batch-table"><thead><tr><th>Medicine / batch</th><th>Expiry</th><th>Price</th><th>Stock</th><th>Qty</th><th></th></tr></thead><tbody>
+      {% for b in batches %}
+      <tr data-search="{{ (b.name ~ ' ' ~ b.batch_number)|lower }}">
+        <td><strong>{{ b.name }}</strong><small>{{ b.batch_number }}</small></td><td>{{ b.expiry_date }}</td>
+        <td>₹{{ '%.2f'|format(b.selling_price|float) }} <small>GST {{ b.gst_percent }}%</small></td><td>{{ b.quantity }}</td>
+        <td><input class="qty-input" type="number" min="1" max="{{ b.quantity }}" value="1" style="width:78px" aria-label="Quantity for {{ b.name }}"></td>
+        <td><button type="button" class="btn btn-small add-line" data-id="{{ b.batch_id }}" data-name="{{ b.name }}" data-batch="{{ b.batch_number }}" data-price="{{ b.selling_price }}" data-gst="{{ b.gst_percent }}" data-stock="{{ b.quantity }}">Add</button></td>
+      </tr>
+      {% else %}<tr><td colspan="6" class="empty">No active, unexpired stock is available to sell.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <h2 class="section-title">Bill items</h2>
+    <div class="table-wrap"><table><thead><tr><th>Medicine</th><th>Qty</th><th>Unit price</th><th>Line total</th><th></th></tr></thead><tbody id="bill-lines"><tr><td colspan="5" class="empty">No items added.</td></tr></tbody></table></div>
+    <div class="bill-bottom">
+      <label>Discount (₹)<input type="number" min="0" step="0.01" id="discount" name="discount" value="{{ form_data.get('discount','0') }}"></label>
+      <div class="totals"><div>Subtotal <strong id="subtotal">₹0.00</strong></div><div>Estimated GST <strong id="tax">₹0.00</strong></div><div class="grand-total">Total due <strong id="total">₹0.00</strong></div></div>
+    </div>
+    <button class="btn btn-primary" id="submit-bill" disabled>Create unpaid bill</button>
+    <p class="small-note">The customer must settle every previous outstanding bill before a new bill can be created. This is checked again on the server during checkout.</p>
+  </form>
+</section>
+{% endblock %}

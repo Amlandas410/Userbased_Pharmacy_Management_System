@@ -1,1 +1,13 @@
-{% extends 'base.html' %}{% block title %}Sales{% endblock %}{% block content %}<div class="page-head"><div><p class="eyebrow">TRANSACTIONS</p><h1>Sales history</h1></div><a class="btn btn-primary" href="{{ url_for('main.billing') }}">＋ New bill</a></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Bill</th><th>Customer</th><th>Date</th><th>Subtotal</th><th>Tax</th><th>Total</th><th>Profit estimate</th><th></th></tr></thead><tbody>{% for r in rows %}<tr><td>{{ r.bill_number }}</td><td>{{ r.customer_name }}</td><td>{{ r.created_at }}</td><td>₹{{ '%.2f'|format(r.subtotal|float) }}</td><td>₹{{ '%.2f'|format(r.tax_amount|float) }}</td><td>₹{{ '%.2f'|format(r.total_amount|float) }}</td><td>₹{{ '%.2f'|format(r.recorded_profit|float) }}</td><td><a href="{{ url_for('main.bill_detail',sale_id=r.id) }}">View</a></td></tr>{% else %}<tr><td colspan="8" class="empty">No sales yet.</td></tr>{% endfor %}</tbody></table></div></section>{% endblock %}
+{% extends 'base.html' %}{% block title %}Sales{% endblock %}{% block content %}
+<div class="page-head"><div><p class="eyebrow">TRANSACTIONS</p><h1>Sales history</h1><p class="muted">Track every invoice and its payment status.</p></div><a class="btn btn-primary" href="{{ url_for('main.billing') }}">＋ New bill</a></div>
+<section class="panel">
+  <form method="get" action="{{ url_for('main.sales') }}" class="searchbar">
+    <input type="tel" name="phone" value="{{ search_phone }}" inputmode="numeric" autocomplete="tel" minlength="10" maxlength="10" pattern="[6-9][0-9]{9}" placeholder="Search by 10-digit mobile number" aria-label="Customer phone number">
+    <button class="btn btn-primary" type="submit">Search bills</button>
+    {% if search_phone %}<a class="btn btn-light" href="{{ url_for('main.sales') }}">Clear</a>{% endif %}
+  </form>
+  {% if search_error %}<p class="flash error" role="alert">{{ search_error }}</p>{% endif %}
+  <div class="table-wrap"><table><thead><tr><th>Bill</th><th>Customer</th><th>Date</th><th>Total</th><th>Paid</th><th>Balance</th><th>Payment status</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td><strong>{{ r.bill_number }}</strong></td><td>{{ r.customer_name }}{% if r.customer_phone %}<small>{{ r.customer_phone }}</small>{% endif %}</td><td>{{ r.created_at }}</td><td>₹{{ '%.2f'|format(r.total_amount|float) }}</td><td>₹{{ '%.2f'|format(r.amount_paid|float) }}</td><td>₹{{ '%.2f'|format((r.total_amount-r.amount_paid)|float) }}</td><td><span class="pill {{ 'success' if r.payment_status=='paid' else ('warning' if r.payment_status=='partial' else 'danger') }}">{{ r.payment_status|capitalize }}</span></td><td><a href="{{ url_for('main.bill_detail',sale_id=r.id) }}">View bill</a></td></tr>
+{% else %}<tr><td colspan="8" class="empty">{% if search_phone and not search_error %}No bills found for this phone number.{% else %}No sales yet.{% endif %}</td></tr>{% endfor %}
+</tbody></table></div></section>{% endblock %}

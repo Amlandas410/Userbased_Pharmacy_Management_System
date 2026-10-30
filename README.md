@@ -114,12 +114,14 @@ The current sign-in lookup first finds a pharmacy by its **owner email** in the 
 
 The billing page's JavaScript helps build the cart and display an estimate, but the server recalculates all trusted values from MySQL. On submission, the server:
 
-1. Validates the requested batch IDs, quantities, customer fields, and discount.
-2. Begins a database transaction and locks the requested inventory rows with `SELECT ... FOR UPDATE`.
-3. Rechecks that every batch exists, has sufficient stock, is not expired, and is not marked as prescription-required.
-4. Calculates amounts using decimal values and each batch's GST percentage.
-5. Writes the sale and sale-item snapshots, deducts stock using a quantity guard, and writes a sale audit entry.
-6. Commits the transaction, or rolls it back on an error.
+1. Validates customer name/phone, medicine batch IDs, whole-number quantities, and two-decimal discount input.
+2. For a named customer, acquires a per-phone checkout lock, resolves their prior customer record, and locks/checks every unpaid invoice.
+3. Refuses a new invoice while any previous invoice still has a balance; the check runs on the server and cannot be bypassed by disabling JavaScript.
+4. Begins the stock transaction and locks the requested inventory rows with `SELECT ... FOR UPDATE`.
+5. Rechecks that every batch exists, is active, has sufficient stock, is not expired, and is not marked as prescription-required.
+6. Calculates amounts using decimal values and each batch's GST percentage.
+7. Writes an unpaid sale and sale-item snapshots, deducts stock using a quantity guard, and writes a sale audit entry.
+8. Commits the transaction, or rolls it back on an error.
 
 This protects against the browser changing prices or bypassing stock checks and helps avoid two simultaneous bills selling the same last units. The displayed tax and profit values are simple estimates, not accounting or tax determinations.
 
@@ -368,7 +370,8 @@ The variable names and placeholder format are shown in `.env.example`. Values ar
 
 | Variable | Purpose | Example/development behavior |
 | --- | --- | --- |
-| `SECRET_KEY` | Signs Flask sessions and supports security-related token generation. | Required operationally; the app has an unsafe fallback for development if unset. Always set a long random secret outside throwaway local use. Changing it invalidates existing sessions. |
+| `APP_ENV` | Runtime environment mode. | Use `development` locally and `production` for production startup checks. |
+| `SECRET_KEY` | Signs Flask sessions and supports security-related token generation. | Set a unique random value of at least 32 characters. Development generates an ephemeral key if unset or left as the example placeholder; production refuses to start without a configured key. Changing it invalidates existing sessions. |
 | `PLATFORM_DB_HOST` | MySQL host for platform and runtime tenant connections. | Compose service name `db` inside Docker; usually `127.0.0.1` for a host-run app. |
 | `PLATFORM_DB_PORT` | MySQL TCP port. | Defaults to `3306`. |
 | `PLATFORM_DB_USER` | Platform DB and tenant runtime connection user. | Compose defaults to `platform_app`; this same account is granted access to provisioned tenant DBs. |
@@ -379,20 +382,31 @@ The variable names and placeholder format are shown in `.env.example`. Values ar
 | `MYSQL_ROOT_PASSWORD` | MySQL root password used during database initialization and by the one-shot Compose provisioner. | Must be set for Compose. Keep it private and do not use the root account for normal web requests. |
 | `COOKIE_SECURE` | Enables Flask's `Secure` session-cookie flag when the value is `true` (case-insensitive). | `.env.example` uses `false` for local HTTP. Enable behind correctly configured HTTPS in production. |
 | `REGISTRATION_ENABLED` | Enables/disables public pharmacy registration. | Defaults to enabled when unset; set to `false` to disable registration. |
+| `RATELIMIT_STORAGE_URI` | Flask-Limiter storage backend. | Defaults to `memory://` for local development; use a shared Redis backend for multiple production workers/instances. |
 
 In the Compose example, `db-provisioner` uses `MYSQL_ROOT_PASSWORD` to bootstrap the configured `PROVISION_DB_USER` and gives it global privileges with grant option. The Flask process then uses the provisioner credentials only for provisioning and uses `PLATFORM_DB_USER` for normal DB connections. Restrict and redesign these privileges before deploying beyond local development.
 
+## Customer billing and payment tracking
+
+- New invoices are created with an **Unpaid** status and show the amount paid and remaining balance.
+- Record full or partial payments from the invoice page. Every payment has its own transaction record, method, optional reference, receiving user, and timestamp.
+- Sales history shows Paid, Partially paid, or Unpaid. The dashboard's recent sales also shows the payment state.
+- For a named customer, enter their phone number on the billing screen. MediLedger looks up previous invoices and shows the recent bill history plus every outstanding bill.
+- A customer with any outstanding balance cannot create another invoice until all earlier dues are fully settled. This is enforced again on the server inside a database transaction and serialized per customer phone number; the browser check is only a usability aid.
+- Walk-in sales without a phone number remain possible, but they cannot be matched to a returning customer later.
+
+On first use after upgrading an older tenant database, the app applies an additive payment migration and creates the `bill_payments` table. Existing sales created before payment tracking are treated as paid historical invoices to avoid unexpectedly blocking repeat customers; new invoices are explicitly created as unpaid. Back up the database before deploying any schema change.
+
 ## Tests
 
-Install the application dependencies and pytest in the development environment, then run from the repository root. Pytest is a test/development tool and is not listed in the runtime `requirements.txt`:
+Install the development dependencies and run from the repository root:
 
 ```powershell
-python -m pip install -r requirements.txt
-python -m pip install pytest
-python -m pytest
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
 ```
 
-The current tests cover selected behavior, including medicine CSV validation, generated tenant database-name format, registration email syntax, medicine editing-related behavior, and theme assets. They do not provide comprehensive end-to-end coverage, MySQL integration tests, concurrency tests, role tests, provisioning-failure recovery tests, or tenant-isolation assurance. A passing test suite is not evidence that the application is production-ready.
+The regression suite includes payment-schema migration checks, payment validation and partial-payment behavior, customer debt blocking, medicine input/CSV validation, generated tenant database-name format, registration email syntax, login-page rendering, and theme assets. Some database workflows use mocked connections. This environment did not have a live MySQL server or Docker runtime, so live database integration, actual transaction locking, end-to-end tenant isolation, and container startup were not verified. A passing test suite is not evidence that the application is production-ready.
 
 ## Operational notes and troubleshooting
 

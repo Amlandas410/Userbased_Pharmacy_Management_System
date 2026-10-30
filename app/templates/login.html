@@ -1,1 +1,37 @@
-{% extends 'base.html' %}{% block title %}Sign in{% endblock %}{% block content %}<section class="auth-card"><div class="auth-icon">✚</div><p class="eyebrow">MEDILEDGER · PHARMACY CLOUD</p><h1>Welcome back</h1><p class="muted">Sign in to your pharmacy workspace.</p><form method="post" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Owner email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button class="btn btn-primary full">Sign in →</button></form><p class="auth-bottom">New pharmacy? <a href="{{ url_for('auth.register') }}">Create an account</a></p></section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="login-layout">
+  <section class="login-hero" aria-label="MediLedger overview">
+    <div class="hero-brand"><span class="hero-logo">✚</span><span>MediLedger</span></div>
+    <div class="hero-copy">
+      <span class="hero-chip"><span class="status-dot"></span> PHARMACY OPERATIONS, IN SYNC</span>
+      <h1>More clarity.<br><span>Better care.</span></h1>
+      <p>Manage your pharmacy in one calm, connected workspace — from medicine inventory to billing and payment tracking.</p>
+      <div class="hero-features">
+        <div><span class="feature-icon">▦</span><span><strong>Inventory control</strong><small>Track batches, expiry dates and stock.</small></span></div>
+        <div><span class="feature-icon">₹</span><span><strong>Clear billing</strong><small>See previous bills and pending balances.</small></span></div>
+        <div><span class="feature-icon">⌁</span><span><strong>Private workspace</strong><small>Your pharmacy data stays in its own tenant.</small></span></div>
+      </div>
+    </div>
+    <div class="hero-foot"><span>BUILT FOR EVERYDAY PHARMACY WORK</span><span>SECURE WORKSPACE · SIMPLE OPERATIONS</span></div>
+    <div class="hero-orb hero-orb-one"></div><div class="hero-orb hero-orb-two"></div>
+  </section>
+  <section class="auth-card login-card">
+    <div class="auth-icon">✚</div>
+    <p class="eyebrow">WELCOME TO MEDILEDGER</p>
+    <h2>Sign in to your pharmacy</h2>
+    <p class="muted">Sign in with your account details. Staff should also enter the pharmacy owner's registered email.</p>
+    <form method="post" class="stack" autocomplete="on">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Email address<input name="email" type="email" autocomplete="username" placeholder="you@pharmacy.com" maxlength="254" required></label>
+      <label>Pharmacy owner's registered email <span class="muted inline-note">Required for staff accounts</span><input name="pharmacy_email" type="email" autocomplete="organization" placeholder="owner@pharmacy.com" maxlength="254"></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required></label>
+      <button class="btn btn-primary full login-submit">Sign in <span aria-hidden="true">→</span></button>
+    </form>
+    <div class="login-divider"><span>NEW TO MEDILEDGER?</span></div>
+    <p class="auth-bottom">Register your pharmacy <a href="{{ url_for('auth.register') }}">Create an account</a></p>
+    <p class="login-note">By signing in, you agree to use this workspace only for authorized pharmacy operations.</p>
+  </section>
+</div>
+{% endblock %}

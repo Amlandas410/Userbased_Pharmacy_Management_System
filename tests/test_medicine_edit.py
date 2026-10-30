@@ -248,7 +248,7 @@ def test_dashboard_stock_cards_link_to_filtered_inventory(medicine_app):
         response = render_template(
             "dashboard.html",
             stock={"medicine_count": 1, "total_stock": 20, "inventory_cost": 100, "inventory_retail": 150},
-            today={"revenue": 0, "bills": 0, "profit": 0},
+            today={"revenue": 0, "collected": 0, "outstanding": 0, "bills": 0, "profit": 0},
             low=1,
             expired=1,
             recent=[],
@@ -338,5 +338,5 @@ def test_owner_cannot_save_invalid_medicine_edit(medicine_app):
         response = client.post("/medicines/batches/25/edit", data=form)
 
     assert response.status_code == 200
-    assert b"selling price must be at least purchase price" in response.data
+    assert b"Selling price must be at least purchase price" in response.data
     assert not any(query.startswith("UPDATE") for query, _ in connection.queries)

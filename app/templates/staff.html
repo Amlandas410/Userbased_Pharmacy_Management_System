@@ -1,1 +1,54 @@
-{% extends 'base.html' %}{% block title %}Staff{% endblock %}{% block content %}<div class="page-head"><div><p class="eyebrow">ACCESS CONTROL</p><h1>Staff & roles</h1><p class="muted">Give every staff member an individual account.</p></div></div><section class="panel"><h2>Create staff account</h2><form method="post" class="form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Full name<input name="full_name" required></label><label>Email<input name="email" type="email" required></label><label>Password<input name="password" type="password" minlength="12" required></label><label>Role<select name="role"><option value="billing">Billing staff</option><option value="pharmacist">Pharmacist</option><option value="admin">Admin</option></select></label><div class="span2"><button class="btn btn-primary">Create account</button></div></form></section><section class="panel"><h2>Accounts</h2><div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead><tbody>{% for r in rows %}<tr><td>{{ r.full_name }}</td><td>{{ r.email }}</td><td>{{ r.role }}</td><td>{{ 'Active' if r.is_active else 'Disabled' }}</td></tr>{% endfor %}</tbody></table></div></section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Staff{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="eyebrow">ACCESS CONTROL</p><h1>Staff & roles</h1><p class="muted">Give every staff member an individual account.</p></div></div>
+<section class="panel">
+  <h2>Create staff account</h2>
+  <form method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Full name<input name="full_name" required maxlength="160"></label>
+    <label>Email<input name="email" type="email" required maxlength="254"></label>
+    <label>Password<input name="password" type="password" minlength="12" required><small>At least 12 characters.</small></label>
+    <label>Role<select name="role"><option value="billing">Billing staff</option><option value="pharmacist">Pharmacist</option><option value="admin">Admin</option></select></label>
+    <div class="span2"><button class="btn btn-primary">Create account</button></div>
+  </form>
+</section>
+<section class="panel">
+  <h2>Accounts</h2>
+  <p class="small-note">You can edit staff details, roles, and access status. Owner accounts and your current account are protected.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.full_name }}</td><td>{{ r.email }}</td><td>{{ r.role|capitalize }}</td>
+        <td>{{ 'Active' if r.is_active else 'Disabled' }}</td>
+        <td>
+          {% if r.role != 'owner' and r.id != current_user_id %}
+          <details>
+            <summary>Edit</summary>
+            <form method="post" action="{{ url_for('main.edit_staff',user_id=r.id) }}" class="stack">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label>Full name<input name="full_name" value="{{ r.full_name }}" required maxlength="160"></label>
+              <label>Email<input name="email" type="email" value="{{ r.email }}" required maxlength="254"></label>
+              <label>New password<input name="password" type="password" minlength="12" autocomplete="new-password"><small>Leave blank to keep the current password. If changing it, use at least 12 characters.</small></label>
+              <label>Role<select name="role">
+                <option value="billing" {{ 'selected' if r.role == 'billing' else '' }}>Billing staff</option>
+                <option value="pharmacist" {{ 'selected' if r.role == 'pharmacist' else '' }}>Pharmacist</option>
+                <option value="admin" {{ 'selected' if r.role == 'admin' else '' }}>Admin</option>
+              </select></label>
+              <label>Access<select name="is_active">
+                <option value="1" {{ 'selected' if r.is_active else '' }}>Active</option>
+                <option value="0" {{ 'selected' if not r.is_active else '' }}>Disabled</option>
+              </select></label>
+              <button class="btn btn-primary btn-small" type="submit">Save changes</button>
+            </form>
+          </details>
+          {% else %}<span class="muted">Protected</span>{% endif %}
+        </td>
+      </tr>
+      {% else %}<tr><td colspan="5" class="empty">No accounts found.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}
